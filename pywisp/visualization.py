@@ -8,7 +8,28 @@ from PyQt5.QtWidgets import *
 import time
 import os
 
-__all__ = ["MplVisualizer"]
+__all__ = ["VtkVisualizer", "MplVisualizer"]
+
+try:
+    import vtk
+    from vtk.qt.QVTKRenderWindowInteractor import *
+
+    class QVTKRenderWindowInteractor(QVTKRenderWindowInteractor):
+        """
+        overload class to patch problem with zooming in vtk window
+        the reason is that the QWheelEvent in PyQt5 hasn't the function delta()
+        so we have to replace that with angleDelta()
+        the error is caused by vtk 7.0.0
+        """
+        # override function
+        def wheelEvent(self, ev):
+            if ev.angleDelta().y() >= 0:
+                self._Iren.MouseWheelForwardEvent()
+            else:
+                self._Iren.MouseWheelBackwardEvent()
+
+except ImportError as e:
+    QVTKRenderWindowInteractor = None
 
 
 class Visualizer(metaclass=ABCMeta):
@@ -100,6 +121,62 @@ class MplVisualizer(Visualizer):
         if not os.path.exists(path) or not os.path.isdir(path):
             os.mkdir(path)
         return path
+
+    def update(self, dataPoints):
+        pass
+
+
+class VtkVisualizer(Visualizer):
+    """
+    Base Class with some functionality the help visualizing the system using vtk
+    """
+
+    def __init__(self, renderer):
+        Visualizer.__init__(self)
+
+        assert isinstance(renderer, vtk.vtkRenderer)
+        self.ren = renderer
+
+        self.can_reset_view = False
+        self.position = None
+        self.focal_point = None
+        self.view_up = None
+        self.view_angle = None
+        self.parallel_projection = None
+        self.parallel_scale = None
+        self.clipping_range = None
+
+    def reset_camera(self):
+        """
+        Reset camera to original view.
+
+        Will be available if you implement the attributes below and set the
+        'can_reset_view' flag.
+        """
+        if self.can_reset_view:
+            camera = self.ren.GetActiveCamera()
+            camera.SetPosition(self.position)
+            camera.SetFocalPoint(self.focal_point)
+            camera.SetViewUp(self.view_up)
+            camera.SetViewAngle(self.view_angle)
+            camera.SetParallelProjection(self.parallel_projection)
+            camera.SetParallelScale(self.parallel_scale)
+            camera.SetClippingRange(self.clipping_range)
+        else:
+            self.ren.ResetCamera()
+
+    def save_camera_pose(self):
+        # add camera reset functionality
+        camera = self.ren.GetActiveCamera()
+        self.position = camera.GetPosition()
+        self.focal_point = camera.GetFocalPoint()
+        self.view_up = camera.GetViewUp()
+        self.view_angle = camera.GetViewAngle()
+        self.parallel_projection = camera.GetParallelProjection()
+        self.parallel_scale = camera.GetParallelScale()
+        self.clipping_range = camera.GetClippingRange()
+
+        self.can_reset_view = True
 
     def update(self, dataPoints):
         pass
