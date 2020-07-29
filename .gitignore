@@ -97,10 +97,9 @@ Thumbs.db
 
 # Arduino
 build-uno
+build-arduino-due-x
 
 CMakeCache.txt
 CMakeFiles
 Makefile
 *.cmake
-
-server
