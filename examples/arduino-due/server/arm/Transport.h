@@ -6,13 +6,14 @@
 
 #if defined(ARDUINO) && ARDUINO >= 100
 #include "Arduino.h"
+
 #else
 
 #include "WProgram.h"
 
 #endif
 
-#define MAX_PAYLOAD                   (20)
+#define MAX_PAYLOAD                   (26)
 #define TRANSPORT_MAX_WINDOW_SIZE     (40U)
 #define MIN_MAX_FRAMES                (16)
 #define MIN_MAX_FRAME_DATA            (1<<8)
@@ -112,7 +113,7 @@ private:
 
     void unpackTrajRampData(uint8_t *payload);
 
-    Min cMin;
+    MinClass cMin;
 
     /**
      * Adds a double value to payload
@@ -152,10 +153,24 @@ private:
     void pack32(uint32_t data, uint8_t payload[]);
 
     /**
+     * Write 64 bit data from char array to paylodad 
+     * @param data the 64 bit char array
+     * @param payload byte array
+     */
+    void pack64(char data[], uint8_t payload[]);
+  
+
+    /**
      * Convert a 4 byte array to a 32 bit unsigned integer
      * @return the 32 bit unsigned integer
      */
     uint32_t unPack32();
+
+    /**
+     * Write 8 byte payload to cahr array
+     * @return the 62 bit char array
+     */
+    void unPack64(char data[]);
 
     /**
      * Return a double value from payload

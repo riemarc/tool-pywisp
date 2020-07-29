@@ -16,6 +16,7 @@
 #include <stdint.h>
 #include <Arduino.h>
 
+
 #define DEBUG_PRINT 0
 #if DEBUG_PRINT
 
@@ -62,9 +63,9 @@ public:
     uint32_t now;
 };
 
-class Min {
+class MinClass {
 public:
-    Min(uint8_t frames, uint16_t frame_data, uint8_t max_payload, uint8_t serialBufLen) : transport_fifo(frames) {
+    MinClass(uint8_t frames, uint16_t frame_data, uint8_t max_payload, uint8_t serialBufLen) : transport_fifo(frames) {
         // Initialize context
         rx_header_bytes_seen = 0;
         rx_frame_state = SEARCHING_FOR_SOF;
@@ -83,7 +84,7 @@ public:
         serialBuf = new uint8_t[serialBufLen];
     }
 
-    void initSerial(HardwareSerial &serial) {
+    void initSerial(UARTClass &serial) {
         this->serial = &serial;
 
         this->serial->begin(115200);
@@ -105,7 +106,7 @@ private:
     uint8_t *serialBuf;
     uint8_t *payloads_ring_buffer;
 
-    HardwareSerial *serial;
+    UARTClass *serial;
 
     uint8_t *rx_frame_payload_buf;      // Payload received so far
     uint32_t rx_frame_checksum;                     // Checksum received over the wire

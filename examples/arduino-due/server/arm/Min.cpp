@@ -17,11 +17,11 @@ void debug_print(const char *msg, ...) {
 }
 #endif
 
-void Min::crc32_init_context(uint32_t &checksum) {
+void MinClass::crc32_init_context(uint32_t &checksum) {
     checksum = 0xffffffffU;
 }
 
-void Min::crc32_step(uint32_t &checksum, uint8_t byte) {
+void MinClass::crc32_step(uint32_t &checksum, uint8_t byte) {
     checksum ^= byte;
     for (uint32_t j = 0; j < 8; j++) {
         uint32_t mask = (uint32_t) - (checksum & 1U);
@@ -29,11 +29,11 @@ void Min::crc32_step(uint32_t &checksum, uint8_t byte) {
     }
 }
 
-uint32_t Min::crc32_finalize(uint32_t &checksum) {
+uint32_t MinClass::crc32_finalize(uint32_t &checksum) {
     return ~checksum;
 }
 
-void Min::stuffed_tx_byte(uint8_t byte) {
+void MinClass::stuffed_tx_byte(uint8_t byte) {
     // Transmit the byte
     tx_byte(byte);
     crc32_step(this->tx_checksum, byte);
@@ -49,7 +49,7 @@ void Min::stuffed_tx_byte(uint8_t byte) {
     }
 }
 
-void Min::on_wire_bytes(uint8_t id_control, uint8_t seq, uint8_t *payload_base, uint16_t payload_offset,
+void MinClass::on_wire_bytes(uint8_t id_control, uint8_t seq, uint8_t *payload_base, uint16_t payload_offset,
                         uint16_t payload_mask, uint8_t payload_len) {
     uint8_t n;
     uint32_t checksum;
@@ -90,7 +90,7 @@ void Min::on_wire_bytes(uint8_t id_control, uint8_t seq, uint8_t *payload_base, 
 }
 
 // Pops frame from front of queue, reclaims its ring buffer space
-void Min::transport_fifo_pop() {
+void MinClass::transport_fifo_pop() {
     struct TransportFrame *frame = &this->transport_fifo.frames[this->transport_fifo.head_idx];
     debug_print("Popping frame id=%d seq=%d\n", frame->min_id, frame->seq);
 
@@ -101,7 +101,7 @@ void Min::transport_fifo_pop() {
 }
 
 // Claim a buffer slot from the FIFO. Returns 0 if there is no space.
-struct TransportFrame *Min::transport_fifo_push(uint8_t data_size) {
+struct TransportFrame *MinClass::transport_fifo_push(uint8_t data_size) {
     // A frame is only queued if there aren't too many frames in the FIFO and there is space in the
     // data ring buffer.
     struct TransportFrame *ret = 0;
@@ -132,13 +132,13 @@ struct TransportFrame *Min::transport_fifo_push(uint8_t data_size) {
 }
 
 // Return the nth frame in the FIFO
-struct TransportFrame *Min::transport_fifo_get(uint8_t n) {
+struct TransportFrame *MinClass::transport_fifo_get(uint8_t n) {
     uint8_t idx = this->transport_fifo.head_idx;
     return &this->transport_fifo.frames[(idx + n) & transport_fifo_max_frames_mask];
 }
 
 // Sends the given frame to the serial line
-void Min::transport_fifo_send(struct TransportFrame *frame) {
+void MinClass::transport_fifo_send(struct TransportFrame *frame) {
     debug_print("transport_fifo_send: min_id=%d, seq=%d, payload_len=%d\n",
                 frame->min_id, frame->seq, frame->payload_len);
     on_wire_bytes(frame->min_id | (uint8_t) TRANSPORT_FRAME, frame->seq, payloads_ring_buffer, frame->payload_offset,
@@ -146,21 +146,21 @@ void Min::transport_fifo_send(struct TransportFrame *frame) {
     frame->last_sent_time_ms = transport_fifo.now;
 }
 
-void Min::tx_byte(uint8_t byte) {
+void MinClass::tx_byte(uint8_t byte) {
     serial->write(&byte, 1);
 }
 
-uint32_t Min::time_ms() {
+uint32_t MinClass::time_ms() {
     return millis();
 }
 
-uint16_t Min::tx_space() {
+uint16_t MinClass::tx_space() {
     return serial->availableForWrite();
 }
 
 
 // We don't queue an ACK frame - we send it straight away (if there's space to do so)
-void Min::send_ack() {
+void MinClass::send_ack() {
     // In the embedded end we don't reassemble out-of-order frames and so never ask for retransmits. Payload is
     // always the same as the sequence number.
     debug_print("send ACK: seq=%d\n", this->transport_fifo.rn);
@@ -171,7 +171,7 @@ void Min::send_ack() {
 }
 
 // We don't queue an RESET frame - we send it straight away (if there's space to do so)
-void Min::send_reset() {
+void MinClass::send_reset() {
     debug_print("send RESET\n");
     if (on_wire_size(0) <= tx_space()) {
         on_wire_bytes(RESET, 0, 0, 0, 0, 0);
@@ -195,7 +195,7 @@ void TransportFIFO::reset() {
     this->last_received_frame_ms = 0;
 }
 
-void Min::transport_reset(bool inform_other_side) {
+void MinClass::transport_reset(bool inform_other_side) {
     if (inform_other_side) {
         // Tell the other end we have gone away
         send_reset();
@@ -207,7 +207,7 @@ void Min::transport_reset(bool inform_other_side) {
 
 // Queues a MIN ID / payload frame into the outgoing FIFO
 // Returns true if the frame was queued OK.
-bool Min::queue_frame(uint8_t min_id, uint8_t *payload, uint8_t payload_len) {
+bool MinClass::queue_frame(uint8_t min_id, uint8_t *payload, uint8_t payload_len) {
     struct TransportFrame *frame = transport_fifo_push(payload_len); // Claim a FIFO slot, reserve space for payload
 
     // We are just queueing here: the poll() function puts the frame into the window and on to the wire
@@ -232,7 +232,7 @@ bool Min::queue_frame(uint8_t min_id, uint8_t *payload, uint8_t payload_len) {
 }
 
 // Finds the frame in the window that was sent least recently
-struct TransportFrame *Min::find_retransmit_frame() {
+struct TransportFrame *MinClass::find_retransmit_frame() {
     uint8_t window_size = this->transport_fifo.sn_max - this->transport_fifo.sn_min;
 
     // Start with the head of the queue and call this the oldest
@@ -255,7 +255,7 @@ struct TransportFrame *Min::find_retransmit_frame() {
 
 // This runs the receiving half of the transport protocol, acknowledging frames received, discarding
 // duplicates received, and handling RESET requests.
-void Min::valid_frame_received() {
+void MinClass::valid_frame_received() {
     uint8_t id_control = this->rx_frame_id_control;
     uint8_t *payload = this->rx_frame_payload_buf;
     uint8_t payload_len = this->rx_control;
@@ -344,13 +344,14 @@ void Min::valid_frame_received() {
                 }
             } else {
                 // Not a transport frame
+                
                 application_handler(id_control & (uint8_t) 0x3fU, payload, payload_len);
             }
             break;
     }
 }
 
-void Min::rx_byte(uint8_t byte) {
+void MinClass::rx_byte(uint8_t byte) {
     // Regardless of state, three header bytes means "start of frame" and
     // should reset the frame buffer and be ready to receive frame data
     //
@@ -373,6 +374,7 @@ void Min::rx_byte(uint8_t byte) {
             this->rx_frame_state = SEARCHING_FOR_SOF;
             return;
         }
+        
     }
 
     if (byte == HEADER_BYTE) {
@@ -466,6 +468,7 @@ void Min::rx_byte(uint8_t byte) {
             this->rx_frame_state = SEARCHING_FOR_SOF;
             break;
         default:
+        
             // Should never get here but in case we do then reset to a safe state
             this->rx_frame_state = SEARCHING_FOR_SOF;
             break;
@@ -473,7 +476,7 @@ void Min::rx_byte(uint8_t byte) {
 }
 
 // Sends received bytes into a MIN context and runs the transport timeouts
-void Min::poll() {
+void MinClass::poll() {
     int avl = 0;
     uint32_t len = 0;
     if ((avl = serial->available())) {
@@ -525,6 +528,6 @@ void Min::poll() {
     }
 }
 
-void Min::application_handler(uint8_t min_id, uint8_t *min_payload, uint8_t len_payload) {
+void MinClass::application_handler(uint8_t min_id, uint8_t *min_payload, uint8_t len_payload) {
     application_function(min_id, min_payload, len_payload);
 }

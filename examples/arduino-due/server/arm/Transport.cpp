@@ -13,17 +13,17 @@ void Transport::run() {
 
 void Transport::sendData() {
 
-    startFrame(15U);
-    pack(this->_benchData.lTime);
-    pack(this->_benchData.dValue1);
-    pack(this->_benchData.fValue2);
-    pack(this->_benchData.iValue3);
-    pack(this->_benchData.cValue4);
+    startFrame(21U);
+    pack(this->_benchData.lTime); // A2:4B
+    pack(this->_benchData.dValue1); // A2:8B
+    pack(this->_benchData.fValue2); // A2:4B
+    pack(this->_benchData.iValue3); // A2:4B
+    pack(this->_benchData.cValue4); // A2:1B
     sendFrame(10);
 
-    startFrame(8U);
-    pack(this->_benchData.lTime);
-    pack(this->_trajData.dOutput);
+    startFrame(12U);
+    pack(this->_benchData.lTime); // A2:4B 
+    pack(this->_trajData.dOutput); // A2:8B
     sendFrame(11);
 }
 //----------------------------------------------------------------------
@@ -53,6 +53,7 @@ void Transport::unpackExp(uint8_t *payload) {
     } else {
         this->bActivateExperiment = iData & 1;
         this->_benchData.lTime = 0;
+        
     }
 
 }
@@ -73,6 +74,8 @@ void Transport::unpackTrajRampData(uint8_t *payload) {
     unPack(this->_trajData.lStartTime);
     unPack(this->_trajData.dEndValue);
     unPack(this->_trajData.lEndTime);
+   
+
 }
 //----------------------------------------------------------------------
 
@@ -82,34 +85,43 @@ void Transport::pack32(uint32_t data, uint8_t payload[]) {
     payload[2] = (uint8_t)((data & 0x0000ff00UL) >> 8);
     payload[3] = (uint8_t)(data & 0x000000ffUL);
 }
+
+//----------------------------------------------------------------------
+
+void Transport::pack64(char data[], uint8_t payload[]) {
+    payload[0] = (uint8_t)(data[7]);
+    payload[1] = (uint8_t)(data[6]);
+    payload[2] = (uint8_t)(data[5]);
+    payload[3] = (uint8_t)(data[4]);
+    payload[4] = (uint8_t)(data[3]);
+    payload[5] = (uint8_t)(data[2]);
+    payload[6] = (uint8_t)(data[1]);
+    payload[7] = (uint8_t)(data[0]);    
+}
+
 //----------------------------------------------------------------------
 
 void Transport::pack(double dValue) {
-    pack32(*((uint32_t * ) & dValue), payload + cCursor);
-
-    cCursor += 4U;
+    pack64((char * ) & dValue, payload + cCursor);
+    cCursor += 8U;
 }
 //----------------------------------------------------------------------
 
 void Transport::pack(unsigned long lValue) {
     pack32(*((uint32_t * ) & lValue), payload + cCursor);
-
     cCursor += 4U;
 }
 //----------------------------------------------------------------------
 
 void Transport::pack(float fValue) {
     pack32(*((uint32_t * ) & fValue), payload + cCursor);
-
     cCursor += 4U;
 }
 //----------------------------------------------------------------------
 
 void Transport::pack(int iValue) {
-    payload[cCursor + 0] = (uint8_t)(((uint16_t) iValue & 0x0000ff00UL) >> 8);
-    payload[cCursor + 1] = (uint8_t)((uint16_t) iValue & 0x000000ffUL);
-
-    cCursor += 2U;
+    pack32(*((uint32_t * ) & iValue), payload + cCursor);
+    cCursor += 4U;
 }
 //----------------------------------------------------------------------
 
@@ -130,11 +142,24 @@ uint32_t Transport::unPack32() {
 }
 //----------------------------------------------------------------------
 
-void Transport::unPack(double &dValue) {
-    uint32_t res = unPack32();
-    dValue = *(double *) &res;
 
-    cCursor += 4U;
+void Transport::unPack64(char res[]) {
+    res[0]=(uint8_t) payload[cCursor + 7];
+    res[1]=(uint8_t) payload[cCursor + 6];
+    res[2]=(uint8_t) payload[cCursor + 5];
+    res[3]=(uint8_t) payload[cCursor + 4];
+    res[4]=(uint8_t) payload[cCursor + 3];
+    res[5]=(uint8_t) payload[cCursor + 2];
+    res[6]=(uint8_t) payload[cCursor + 1];
+    res[7]=(uint8_t) payload[cCursor + 0];
+       
+}
+
+
+//----------------------------------------------------------------------
+void Transport::unPack(double &dValue) {
+    unPack64((char*)&dValue);
+    cCursor += 8U;
 }
 //----------------------------------------------------------------------
 
@@ -155,10 +180,10 @@ void Transport::unPack(float &fValue) {
 //----------------------------------------------------------------------
 
 void Transport::unPack(int &iValue) {
-    iValue = ((uint32_t)(payload[cCursor + 0]) << 8) |
-             (uint32_t)(payload[cCursor + 1]);
+    uint32_t res = unPack32();
+    iValue = *(int *) &res;
 
-    cCursor += 2U;
+    cCursor += 4U;
 }
 //----------------------------------------------------------------------
 
